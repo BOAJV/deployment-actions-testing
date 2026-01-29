@@ -1,0 +1,98 @@
+name: Validation Tests
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  yaml-validation:
+    runs-on: ubuntu-latest
+    name: YAML Syntax Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Validate Helm Templates
+        run: |
+          yamllint test/charts/webapp/
+
+      - name: Validate Kustomize Files
+        run: |
+          yamllint test/k8s/
+
+      - name: Validate Kubernetes Manifests
+        run: |
+          yamllint test/manifests/
+
+  helm-validation:
+    runs-on: ubuntu-latest
+    name: Helm Chart Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.0'
+
+      - name: Helm Template Test - Dev
+        run: |
+          helm template webapp test/charts/webapp \
+            --values test/charts/webapp/values-dev.yaml \
+            --debug --dry-run
+
+      - name: Helm Template Test - Staging
+        run: |
+          helm template webapp test/charts/webapp \
+            --values test/charts/webapp/values-staging.yaml \
+            --debug --dry-run
+
+      - name: Helm Template Test - Production
+        run: |
+          helm template webapp test/charts/webapp \
+            --values test/charts/webapp/values-prod.yaml \
+            --debug --dry-run
+
+  kustomize-validation:
+    runs-on: ubuntu-latest
+    name: Kustomize Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Kustomize Build Test - Dev
+        run: |
+          kustomize build test/k8s/overlays/dev
+
+      - name: Kustomize Build Test - Staging
+        run: |
+          kustomize build test/k8s/overlays/staging
+
+      - name: Kustomize Build Test - Production
+        run: |
+          kustomize build test/k8s/overlays/prod
+
+  kubernetes-validation:
+    runs-on: ubuntu-latest
+    name: Kubernetes Manifest Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Validate Kubernetes Manifests
+        run: |
+          kubectl apply --dry-run=client -f test/manifests/

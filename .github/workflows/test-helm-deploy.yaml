@@ -1,0 +1,87 @@
+name: Test Helm Deploy Action
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-helm-validation:
+    runs-on: ubuntu-latest
+    name: Test Helm Action Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.0'
+
+      - name: Helm Lint
+        run: |
+          helm lint ./test/charts/webapp
+
+      - name: Test Helm Dry Run - Dev
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/helm-deploy@feature/add-deployment-actions
+        with:
+          chart-path: './test/charts/webapp'
+          release-name: 'test-webapp-dev'
+          namespace: 'test-dev'
+          environment: 'dev'
+          values-file: './test/charts/webapp/values-dev.yaml'
+          dry-run: 'true'
+
+      - name: Test Helm Dry Run - Staging
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/helm-deploy@feature/add-deployment-actions
+        with:
+          chart-path: './test/charts/webapp'
+          release-name: 'test-webapp-staging'
+          namespace: 'test-staging'
+          environment: 'staging'
+          values-file: './test/charts/webapp/values-staging.yaml'
+          set-values: 'replicaCount=3,image.tag=staging-v1.0.0'
+          dry-run: 'true'
+
+      - name: Test Helm Dry Run - Production
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/helm-deploy@feature/add-deployment-actions
+        with:
+          chart-path: './test/charts/webapp'
+          release-name: 'test-webapp-prod'
+          namespace: 'test-prod'
+          environment: 'production'
+          values-file: './test/charts/webapp/values-prod.yaml'
+          create-namespace: 'true'
+          dry-run: 'true'
+
+  test-helm-failure-scenarios:
+    runs-on: ubuntu-latest
+    name: Test Helm Failure Handling
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.0'
+
+      - name: Test Invalid Chart Path
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/helm-deploy@feature/add-deployment-actions
+        with:
+          chart-path: './nonexistent-chart'
+          release-name: 'test-fail'
+          namespace: 'test'
+          environment: 'dev'
+          dry-run: 'true'
+        continue-on-error: true
+        id: invalid-chart
+
+      - name: Verify Failure Handling
+        run: |
+          if [ "${{ steps.invalid-chart.outcome }}" != "failure" ]; then
+            echo "Expected failure but action succeeded"
+            exit 1
+          fi
+          echo "Failure handling test passed"

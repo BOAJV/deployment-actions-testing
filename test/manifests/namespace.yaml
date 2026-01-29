@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp-test
+  labels:
+    name: webapp-test
+    environment: test

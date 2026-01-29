@@ -1,0 +1,98 @@
+name: Test ArgoCD Deploy Action
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-argocd-validation:
+    runs-on: ubuntu-latest
+    name: Test ArgoCD Action Validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          rm argocd-linux-amd64
+
+      - name: Test ArgoCD Helm Application (Dry Run)
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+        with:
+          argocd-server: 'argocd.test.local'
+          argocd-token: 'test-token'
+          application-name: 'test-helm-app'
+          target-namespace: 'test-argocd'
+          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          helm-chart-path: 'test/charts/webapp'
+          helm-values-file: 'test/charts/webapp/values-dev.yaml'
+          environment: 'dev'
+          sync-policy: 'none'
+          dry-run: 'true'
+
+      - name: Test ArgoCD Kustomize Application (Dry Run)
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+        with:
+          argocd-server: 'argocd.test.local'
+          argocd-token: 'test-token'
+          application-name: 'test-kustomize-app'
+          target-namespace: 'test-argocd'
+          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          kustomize-path: 'test/k8s/overlays/dev'
+          environment: 'dev'
+          sync-policy: 'automated'
+          auto-prune: 'true'
+          dry-run: 'true'
+
+      - name: Test ArgoCD Directory Application (Dry Run)
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+        with:
+          argocd-server: 'argocd.test.local'
+          argocd-token: 'test-token'
+          application-name: 'test-manifest-app'
+          target-namespace: 'test-argocd'
+          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          path: 'test/manifests'
+          directory-recurse: 'true'
+          environment: 'dev'
+          sync-policy: 'none'
+          dry-run: 'true'
+
+  test-argocd-failure-scenarios:
+    runs-on: ubuntu-latest
+    name: Test ArgoCD Failure Handling
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          rm argocd-linux-amd64
+
+      - name: Test Invalid Server
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+        with:
+          argocd-server: 'invalid.server.local'
+          argocd-token: 'test-token'
+          application-name: 'test-fail-app'
+          target-namespace: 'test'
+          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          path: 'test/manifests'
+          environment: 'dev'
+          dry-run: 'true'
+        continue-on-error: true
+        id: invalid-server
+
+      - name: Verify Failure Handling
+        run: |
+          if [ "${{ steps.invalid-server.outcome }}" != "failure" ]; then
+            echo "Expected failure but action succeeded"
+            exit 1
+          fi
+          echo "Failure handling test passed"

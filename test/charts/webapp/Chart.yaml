@@ -1,0 +1,16 @@
+apiVersion: v2
+name: webapp
+description: Test web application for composite actions testing
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - webapp
+  - test
+  - deployment
+home: https://github.com/BOAJV/deployment-actions-testing
+sources:
+  - https://github.com/BOAJV/deployment-actions-testing
+maintainers:
+  - name: Infrastructure Team
+    email: infrastructure@hexagon.com
