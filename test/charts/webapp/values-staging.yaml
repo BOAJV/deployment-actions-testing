@@ -1,3 +1,4 @@
+---
 # Staging environment overrides
 replicaCount: 2
 

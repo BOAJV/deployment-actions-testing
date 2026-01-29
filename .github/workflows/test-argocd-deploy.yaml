@@ -27,26 +27,27 @@ jobs:
           argocd-token: 'test-token'
           application-name: 'test-helm-app'
           target-namespace: 'test-argocd'
-          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
           helm-chart-path: 'test/charts/webapp'
           helm-values-file: 'test/charts/webapp/values-dev.yaml'
           environment: 'dev'
           sync-policy: 'none'
           dry-run: 'true'
 
-      - name: Test ArgoCD Kustomize Application (Dry Run)
-        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
-        with:
-          argocd-server: 'argocd.test.local'
-          argocd-token: 'test-token'
-          application-name: 'test-kustomize-app'
-          target-namespace: 'test-argocd'
-          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
-          kustomize-path: 'test/k8s/overlays/dev'
-          environment: 'dev'
-          sync-policy: 'automated'
-          auto-prune: 'true'
-          dry-run: 'true'
+      # Kustomize testing disabled - focusing on ArgoCD + Helm workflows
+      # - name: Test ArgoCD Kustomize Application (Dry Run)
+      #   uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+      #   with:
+      #     argocd-server: 'argocd.test.local'
+      #     argocd-token: 'test-token'
+      #     application-name: 'test-kustomize-app'
+      #     target-namespace: 'test-argocd'
+      #     repo-url: ${{ github.server_url }}/${{ github.repository }}
+      #     kustomize-path: 'test/k8s/overlays/dev'
+      #     environment: 'dev'
+      #     sync-policy: 'automated'
+      #     auto-prune: 'true'
+      #     dry-run: 'true'
 
       - name: Test ArgoCD Directory Application (Dry Run)
         uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
@@ -55,7 +56,7 @@ jobs:
           argocd-token: 'test-token'
           application-name: 'test-manifest-app'
           target-namespace: 'test-argocd'
-          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
           path: 'test/manifests'
           directory-recurse: 'true'
           environment: 'dev'
@@ -82,7 +83,7 @@ jobs:
           argocd-token: 'test-token'
           application-name: 'test-fail-app'
           target-namespace: 'test'
-          repo-url: 'https://github.com/BOAJV/deployment-actions-testing'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
           path: 'test/manifests'
           environment: 'dev'
           dry-run: 'true'

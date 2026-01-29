@@ -1,3 +1,4 @@
+---
 apiVersion: v2
 name: webapp
 description: Test web application for composite actions testing

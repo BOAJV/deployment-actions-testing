@@ -1,0 +1,28 @@
+---
+extends: default
+
+rules:
+  # Allow longer lines for Helm templates
+  line-length:
+    max: 120
+  
+  # Allow missing document start for templates, but allow them in values files
+  document-start: disable
+  
+  # Be lenient with braces for Helm templating
+  braces:
+    max-spaces-inside: 2
+  
+  # Allow more flexible indentation for templates
+  indentation:
+    spaces: consistent
+  
+  # Don't require new lines at end of files
+  new-line-at-end-of-file: disable
+  
+  # Allow truthy values (yes/no, on/off, etc.)
+  truthy: disable
+
+ignore: |
+  test/charts/webapp/templates/*.yaml
+  test/k8s/

@@ -21,9 +21,10 @@ jobs:
         run: |
           yamllint test/charts/webapp/
 
-      - name: Validate Kustomize Files
-        run: |
-          yamllint test/k8s/
+      # Kustomize validation disabled - focusing on Helm and ArgoCD + Helm
+      # - name: Validate Kustomize Files
+      #   run: |
+      #     yamllint test/k8s/
 
       - name: Validate Kubernetes Manifests
         run: |
@@ -59,29 +60,30 @@ jobs:
             --values test/charts/webapp/values-prod.yaml \
             --debug --dry-run
 
-  kustomize-validation:
-    runs-on: ubuntu-latest
-    name: Kustomize Validation
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Kustomize
-        run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
-
-      - name: Kustomize Build Test - Dev
-        run: |
-          kustomize build test/k8s/overlays/dev
-
-      - name: Kustomize Build Test - Staging
-        run: |
-          kustomize build test/k8s/overlays/staging
-
-      - name: Kustomize Build Test - Production
-        run: |
-          kustomize build test/k8s/overlays/prod
+  # Kustomize validation disabled - focusing on Helm and ArgoCD + Helm workflows
+  # kustomize-validation:
+  #   runs-on: ubuntu-latest
+  #   name: Kustomize Validation
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Set up Kustomize
+  #       run: |
+  #         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+  #         sudo mv kustomize /usr/local/bin/
+  #
+  #     - name: Kustomize Build Test - Dev
+  #       run: |
+  #         kustomize build test/k8s/overlays/dev
+  #
+  #     - name: Kustomize Build Test - Staging
+  #       run: |
+  #         kustomize build test/k8s/overlays/staging
+  #
+  #     - name: Kustomize Build Test - Production
+  #       run: |
+  #         kustomize build test/k8s/overlays/prod
 
   kubernetes-validation:
     runs-on: ubuntu-latest

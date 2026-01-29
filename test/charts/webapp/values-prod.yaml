@@ -1,3 +1,4 @@
+---
 # Production environment overrides
 replicaCount: 3
 
@@ -42,7 +43,7 @@ nodeSelector:
   node-type: production
 
 tolerations:
-- key: "production"
-  operator: "Equal"
-  value: "true"
-  effect: "NoSchedule"
+  - key: "production"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

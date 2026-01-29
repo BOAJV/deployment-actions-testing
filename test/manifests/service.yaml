@@ -1,16 +1,16 @@
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: webapp-test
-  namespace: webapp-test
+  name: webapp
+  namespace: default
   labels:
     app: webapp
-    environment: test
 spec:
   selector:
     app: webapp
   ports:
-  - name: http
-    port: 80
-    targetPort: 80
+    - name: http
+      port: 80
+      targetPort: 80
   type: ClusterIP
