@@ -1,0 +1,155 @@
+# ArgoCD Bootstrap Configuration for Testing
+# This demonstrates the production-ready ArgoCD deployment pattern
+
+# Override namespace to allow testing in isolated environment
+namespaceOverride: "argocd-test"
+
+# Global configuration
+global:
+  domain: argocd-test.local
+  revisionHistoryLimit: 3
+
+# Install CRDs for test instance  
+crds:
+  install: true
+  keep: true
+
+# Configuration management
+configs:
+  cm:
+    create: true
+    # Server configuration
+    url: "https://argocd-test.local"
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    server.rbac.log.enforce.enable: false
+    exec.enabled: true
+    admin.enabled: true
+    timeout.hard.reconciliation: 0s
+    timeout.reconciliation: 180s
+    
+    # Repository configuration - will be enhanced with GitHub App authentication
+    repositories: |
+      - url: https://github.com/Hexagon-Mining-Infrastructure/deployment-actions-testing.git
+        name: deployment-actions-testing
+        type: git
+        # GitHub App authentication will be added via repository secret
+
+  # RBAC configuration
+  rbac:
+    create: true
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, certificates, *, *, allow 
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      p, role:admin, accounts, *, *, allow
+      p, role:admin, gpgkeys, *, *, allow
+      p, role:admin, logs, get, */*, allow
+      p, role:admin, exec, create, */*, allow
+      g, argocd-admins, role:admin
+
+  # Server parameters  
+  params:
+    create: true
+    server.insecure: true
+    application.namespaces: "*"
+    server.enable.proxy.extension: true
+
+# Server configuration
+server:
+  replicas: 1
+  
+  env:
+    - name: ARGOCD_SERVER_INSECURE
+      value: "true"
+  
+  service:
+    type: ClusterIP
+    servicePortHttp: 80
+    servicePortHttps: 443
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    hosts:
+      - host: argocd-test.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  # Resources for test environment
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Repository server configuration  
+repoServer:
+  replicas: 1
+  env:
+    - name: ARGOCD_EXEC_TIMEOUT
+      value: "180s"
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Application controller configuration
+controller:
+  replicas: 1
+  
+  env:
+    - name: ARGOCD_CONTROLLER_REPLICAS
+      value: "1"
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Redis configuration
+redis:
+  enabled: true
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+# ApplicationSet controller
+applicationSet:
+  enabled: true
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+# Notifications controller
+notifications:
+  enabled: false
+
+# Dex configuration (disabled for testing)
+dex:
+  enabled: false

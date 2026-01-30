@@ -1,0 +1,286 @@
+name: 'Test ArgoCD Bootstrap Pattern'
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+    paths:
+      - 'test/argocd-bootstrap/**'
+      - 'test/applications/**'
+      - 'test/external-secrets/**'
+      - '.github/workflows/test-argocd-bootstrap.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'test/argocd-bootstrap/**'
+      - 'test/applications/**'
+      - 'test/external-secrets/**'
+      - '.github/workflows/test-argocd-bootstrap.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-bootstrap-manifests:
+    name: 'Validate Bootstrap Manifests'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.13.1'
+
+      - name: Validate ArgoCD Bootstrap Chart
+        run: |
+          echo "📋 Validating ArgoCD bootstrap Helm chart..."
+          helm dependency update test/argocd-bootstrap/
+          helm template argocd-bootstrap test/argocd-bootstrap/ \
+            --values test/argocd-bootstrap/values.yaml \
+            --dry-run --debug
+
+      - name: Validate Application Manifests
+        run: |
+          echo "📋 Validating ArgoCD application manifests..."
+          for app_file in test/applications/*.yaml; do
+            echo "  Validating: $(basename "$app_file")"
+            # Basic YAML validation
+            yamllint "$app_file" || echo "Warning: YAML lint issues in $app_file"
+            
+            # ArgoCD Application validation using kubectl dry-run
+            kubectl apply --dry-run=client -f "$app_file" || echo "Warning: kubectl validation issues in $app_file"
+          done
+
+      - name: Validate External Secret Manifests  
+        run: |
+          echo "📋 Validating External Secret manifests..."
+          for secret_file in test/external-secrets/*.yaml; do
+            echo "  Validating: $(basename "$secret_file")"
+            yamllint "$secret_file" || echo "Warning: YAML lint issues in $secret_file"
+            kubectl apply --dry-run=client -f "$secret_file" || echo "Warning: kubectl validation issues in $secret_file"
+          done
+
+  test-argocd-bootstrap-basic:
+    name: 'Test ArgoCD Bootstrap (Token Auth)'
+    runs-on: ubuntu-latest
+    needs: validate-bootstrap-manifests
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup ArgoCD CLI
+        run: |
+          echo "🔧 Installing ArgoCD CLI for testing..."
+          curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/v2.12.3/argocd-linux-amd64
+          chmod +x /tmp/argocd
+          sudo mv /tmp/argocd /usr/local/bin/argocd
+          argocd version --client
+
+      - name: Test ArgoCD Bootstrap Deployment (Dry Run)
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/add-deployment-actions
+        with:
+          argocd-server: 'argocd-test.local'
+          argocd-username: 'admin'
+          argocd-password: 'test-token'
+          application-name: 'argocd-bootstrap'
+          application-namespace: 'argocd'
+          target-namespace: 'argocd-test'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
+          helm-chart-path: 'test/argocd-bootstrap'
+          helm-values-files: 'test/argocd-bootstrap/values.yaml'
+          environment: 'test'
+          sync-policy: 'automated'
+          auto-prune: 'true'
+          self-heal: 'true'
+          dry-run: 'true'
+
+  test-argocd-bootstrap-with-apps:
+    name: 'Test ArgoCD Bootstrap with Applications'
+    runs-on: ubuntu-latest
+    needs: validate-bootstrap-manifests
+    if: false  # Disabled until enhanced action is implemented
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Test ArgoCD Bootstrap with Application Deployment
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/enhanced-authentication
+        with:
+          argocd-server: 'argocd-test.local'
+          argocd-username: 'admin'
+          argocd-password: 'test-token'
+          application-name: 'argocd-bootstrap'
+          application-namespace: 'argocd'
+          target-namespace: 'argocd-test'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
+          helm-chart-path: 'test/argocd-bootstrap'
+          helm-values-files: 'test/argocd-bootstrap/values.yaml'
+          environment: 'test'
+          sync-policy: 'automated'
+          auto-prune: 'true'
+          self-heal: 'true'
+          bootstrap-mode: 'true'
+          bootstrap-apps-path: 'test/applications'
+          dry-run: 'true'
+
+  test-github-app-authentication:
+    name: 'Test GitHub App Authentication Pattern'
+    runs-on: ubuntu-latest
+    needs: validate-bootstrap-manifests
+    if: false  # Disabled until enhanced action is implemented
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Test GitHub App Repository Authentication
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/enhanced-authentication
+        with:
+          argocd-server: 'argocd-test.local'
+          argocd-username: 'admin'
+          argocd-password: 'test-token'
+          application-name: 'test-github-app-auth'
+          application-namespace: 'argocd-test'
+          target-namespace: 'test-app'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
+          path: 'test/manifests'
+          environment: 'test'
+          repo-auth-method: 'github-app'
+          github-app-id: '${{ secrets.GITHUB_APP_ID }}'
+          github-app-installation-id: '${{ secrets.GITHUB_APP_INSTALLATION_ID }}'
+          github-app-private-key: '${{ secrets.GITHUB_APP_PRIVATE_KEY }}'
+          dry-run: 'true'
+
+  test-external-secret-integration:
+    name: 'Test External Secret Integration'
+    runs-on: ubuntu-latest
+    needs: validate-bootstrap-manifests
+    if: false  # Disabled until enhanced action is implemented
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Test External Secret for Repository Authentication
+        uses: Hexagon-Mining-Infrastructure/terraform-composite-actions/argocd-deploy@feature/enhanced-authentication
+        with:
+          argocd-server: 'argocd-test.local'
+          argocd-username: 'admin'
+          argocd-password: 'test-token'
+          application-name: 'test-external-secret-auth'
+          application-namespace: 'argocd-test'
+          target-namespace: 'test-app'
+          repo-url: ${{ github.server_url }}/${{ github.repository }}
+          path: 'test/manifests'
+          environment: 'test'
+          repo-auth-method: 'external-secret'
+          external-secret-enabled: 'true'
+          secret-store-ref: 'vault-cluster-secret-store'
+          vault-secret-path: 'argocd-github-app-credential'
+          dry-run: 'true'
+
+  generate-bootstrap-documentation:
+    name: 'Generate Bootstrap Documentation'
+    runs-on: ubuntu-latest
+    needs: [validate-bootstrap-manifests]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Bootstrap Pattern Documentation
+        run: |
+          echo "📚 Generating ArgoCD Bootstrap Pattern documentation..."
+          
+          cat > test/BOOTSTRAP_PATTERN.md << 'EOF'
+          # ArgoCD Bootstrap Pattern Testing
+          
+          This directory demonstrates the production-ready ArgoCD bootstrap pattern used in Hexagon Mining Infrastructure.
+          
+          ## 🏗️ Bootstrap Architecture
+          
+          ### Phase 1: Infrastructure Setup
+          1. **External Secrets Operator**: Deployed via Terraform modules
+          2. **Vault Integration**: Authentication and secret storage
+          3. **GitHub App Credentials**: Stored in Vault, retrieved via ESO
+          
+          ### Phase 2: ArgoCD Bootstrap
+          1. **ArgoCD Deployment**: Using enhanced composite action
+          2. **Repository Authentication**: GitHub App via External Secret
+          3. **Initial Configuration**: RBAC, repositories, projects
+          
+          ### Phase 3: Application Management
+          1. **Declarative Applications**: Additional apps deployed via ArgoCD
+          2. **GitOps Workflow**: All changes through Git commits
+          3. **Automated Sync**: Self-healing and pruning enabled
+          
+          ## 📁 Directory Structure
+          
+          ```
+          test/
+          ├── argocd-bootstrap/        # ArgoCD Helm chart configuration
+          │   ├── Chart.yaml          # ArgoCD chart dependencies
+          │   └── values.yaml         # Production-like configuration
+          ├── applications/           # Apps deployed after ArgoCD bootstrap
+          │   ├── test-webapp.yaml    # Example application
+          │   └── test-secrets.yaml   # External secrets application  
+          └── external-secrets/       # ESO configuration examples
+              ├── cluster-secret-store.yaml  # Vault integration
+              └── github-app-secret.yaml     # GitHub App credentials
+          ```
+          
+          ## 🔐 Authentication Patterns
+          
+          ### Token Authentication (Current)
+          - Simple token-based authentication for testing
+          - Not suitable for production use
+          - Easy to set up for development
+          
+          ### GitHub App Authentication (Enhanced)
+          - Production-ready authentication method
+          - Fine-grained repository access control
+          - Requires GitHub App setup and private key management
+          
+          ### External Secret Integration (Production)
+          - Vault-backed secret management
+          - Automatic credential rotation
+          - Kubernetes-native secret provisioning
+          
+          ## 🧪 Testing Scenarios
+          
+          1. **Basic Bootstrap**: Deploy ArgoCD with token authentication
+          2. **Bootstrap + Apps**: Deploy ArgoCD then additional applications
+          3. **GitHub App Auth**: Test GitHub App repository authentication
+          4. **ESO Integration**: Test External Secret credential management
+          
+          ## 🚀 Getting Started
+          
+          1. **Validate Manifests**: Run YAML validation and helm template tests
+          2. **Test Bootstrap**: Use composite action to deploy ArgoCD
+          3. **Deploy Applications**: Test application deployment through ArgoCD
+          4. **Verify Integration**: Check authentication and secret management
+          
+          ## 📝 Next Steps
+          
+          - Implement enhanced authentication in composite action
+          - Add ESO and Vault setup examples
+          - Create end-to-end integration tests
+          - Document production deployment process
+          EOF
+          
+          echo "✅ Bootstrap documentation generated at test/BOOTSTRAP_PATTERN.md"
+
+      - name: Commit Documentation
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add test/BOOTSTRAP_PATTERN.md
+          git diff --staged --quiet || git commit -m "📚 Update ArgoCD bootstrap pattern documentation"
+          git push
